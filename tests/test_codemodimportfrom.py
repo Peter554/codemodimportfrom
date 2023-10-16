@@ -224,3 +224,68 @@ def test_does_not_rewrite_module_imports(code, expected_transformed_code):
     )
 
     assert transformed_code == expected_transformed_code
+
+
+@pytest.mark.parametrize(
+    "code, expected_transformed_code",
+    [
+        [
+            """
+from pydantic import BaseModel
+BaseModel""",
+            """
+from pydantic import BaseModel
+BaseModel""",
+        ],
+        #
+        [
+            """
+from pydantic import BaseModel, ValidationError
+BaseModel
+ValidationError""",
+            """
+from pydantic import BaseModel; import pydantic
+BaseModel
+pydantic.ValidationError""",
+        ],
+        #
+        [
+            """
+from pydantic import BaseModel as BM, ValidationError
+BM
+ValidationError""",
+            """
+from pydantic import BaseModel as BM; import pydantic
+BM
+pydantic.ValidationError""",
+        ],
+        #
+        [
+            """
+from pydantic import BaseModel, ValidationError
+from pydantic.v1 import BaseModel as V1BaseModel, ValidationError as V1ValidationError
+BaseModel
+ValidationError
+V1BaseModel
+V1ValidationError""",
+            """
+from pydantic import BaseModel; import pydantic
+from pydantic.v1 import BaseModel as V1BaseModel; import pydantic.v1
+BaseModel
+pydantic.ValidationError
+V1BaseModel
+pydantic.v1.ValidationError""",
+        ],
+    ],
+)
+def test_respects_allowlist(code, expected_transformed_code):
+    code = code.strip()
+    expected_transformed_code = expected_transformed_code.strip()
+
+    transformed_code = codemodimportfrom.transform_importfrom(
+        code=code,
+        importfrom="pydantic",
+        allowlist=["pydantic.BaseModel", "pydantic.v1.BaseModel"],
+    )
+
+    assert transformed_code == expected_transformed_code

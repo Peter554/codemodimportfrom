@@ -9,12 +9,12 @@ from libcst import RemovalSentinel, FlattenSentinel  # TODO tidy
 class Transformer(libcst.CSTTransformer):
     METADATA_DEPENDENCIES = (libcst.metadata.QualifiedNameProvider,)
 
-    def __init__(self, importfrom: str):
+    def __init__(self, importfrom: str, allowlist: list[str]):
         self.importfrom = importfrom
 
         self._import_aliases_by_import = collections.defaultdict(set)
         self._import_aliases_to_remove_by_import = collections.defaultdict(set)
-        self._qualified_names_to_leave = set()
+        self._qualified_names_to_leave = set(allowlist)
 
     def visit_ImportFrom(self, node: "ImportFrom") -> Optional[bool]:
         module_name = self._attribute_to_name(node.module)
@@ -22,6 +22,8 @@ class Transformer(libcst.CSTTransformer):
             for import_alias in node.names:
                 self._import_aliases_by_import[node].add(import_alias)
                 full_import = f"{module_name}.{import_alias.name.value}"
+                if full_import in self._qualified_names_to_leave:
+                    continue
                 try:
                     # No error -> A module.
                     importlib.import_module(full_import)
@@ -53,7 +55,12 @@ class Transformer(libcst.CSTTransformer):
                     nodes=[
                         libcst.ImportFrom(
                             module=original_node.module,
-                            names=list(imports_to_keep),
+                            names=[
+                                imports_to_keep.with_changes(
+                                    comma=libcst.MaybeSentinel.DEFAULT
+                                )
+                                for imports_to_keep in list(imports_to_keep)
+                            ],
                         ),
                         libcst.Import(
                             names=[
@@ -101,8 +108,10 @@ class Transformer(libcst.CSTTransformer):
         )
 
 
-def transform_importfrom(*, code: str, importfrom: str) -> str:
+def transform_importfrom(
+    *, code: str, importfrom: str, allowlist: list[str] | None = None
+) -> str:
     tree = libcst.parse_module(code)
     wrapper = libcst.metadata.MetadataWrapper(tree)
-    tree = wrapper.visit(Transformer(importfrom))
+    tree = wrapper.visit(Transformer(importfrom, allowlist or []))
     return tree.code  # TODO black, optimize imports (isort/ruff)?
