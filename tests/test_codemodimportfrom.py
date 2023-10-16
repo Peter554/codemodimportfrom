@@ -129,6 +129,38 @@ def test_handles_import_aliases(code, expected_transformed_code):
     [
         [
             """
+from foo.bar import a, b
+from foo import c, d
+a
+b()
+c
+d()""",
+            """
+import foo.bar
+import foo
+foo.bar.a
+foo.bar.b()
+foo.c
+foo.d()""",
+        ],
+    ],
+)
+def test_handles_dotted_imports(code, expected_transformed_code):
+    code = code.strip()
+    expected_transformed_code = expected_transformed_code.strip()
+
+    transformed_code = codemodimportfrom.transform_importfrom(
+        code=code, importfrom="foo"
+    )
+
+    assert transformed_code == expected_transformed_code
+
+
+@pytest.mark.parametrize(
+    "code, expected_transformed_code",
+    [
+        [
+            """
 from pydantic import BaseModel
 BaseModel""",
             """
@@ -165,6 +197,21 @@ pydantic_dataclasses""",
 from pydantic import dataclasses as pydantic_dataclasses; import pydantic
 pydantic.BaseModel
 pydantic_dataclasses""",
+        ],
+        #
+        [
+            """
+from pydantic.v1 import BaseModel, dataclasses as pydantic_dataclasses
+from pydantic import ValidationError
+BaseModel
+pydantic_dataclasses
+ValidationError""",
+            """
+from pydantic.v1 import dataclasses as pydantic_dataclasses; import pydantic.v1
+import pydantic
+pydantic.v1.BaseModel
+pydantic_dataclasses
+pydantic.ValidationError""",
         ],
     ],
 )

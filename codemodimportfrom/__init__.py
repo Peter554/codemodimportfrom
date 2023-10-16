@@ -1,6 +1,6 @@
 import collections
 import importlib
-from typing import Optional, Union
+from typing import Optional, Union  # TODO tidy
 
 import libcst
 from libcst import RemovalSentinel, FlattenSentinel  # TODO tidy
@@ -17,10 +17,11 @@ class Transformer(libcst.CSTTransformer):
         self._qualified_names_to_leave = set()
 
     def visit_ImportFrom(self, node: "ImportFrom") -> Optional[bool]:
-        if node.module.value == self.importfrom:
+        module_name = self._attribute_to_name(node.module)
+        if module_name.startswith(self.importfrom):
             for import_alias in node.names:
                 self._import_aliases_by_import[node].add(import_alias)
-                full_import = f"{self.importfrom}.{import_alias.name.value}"
+                full_import = f"{module_name}.{import_alias.name.value}"
                 try:
                     # No error -> A module.
                     importlib.import_module(full_import)
@@ -35,6 +36,7 @@ class Transformer(libcst.CSTTransformer):
     ) -> Union[
         "BaseSmallStatement", FlattenSentinel["BaseSmallStatement"], RemovalSentinel
     ]:
+        module_name = self._attribute_to_name(original_node.module)
         if original_node in self._import_aliases_by_import:
             imports_to_remove = self._import_aliases_to_remove_by_import[original_node]
             imports_to_keep = (
@@ -42,7 +44,9 @@ class Transformer(libcst.CSTTransformer):
             )
             if not imports_to_keep:
                 return libcst.Import(
-                    names=[libcst.ImportAlias(name=libcst.Name(value=self.importfrom))]
+                    names=[
+                        libcst.ImportAlias(name=self._name_to_attribute(module_name))
+                    ]
                 )
             elif imports_to_remove:
                 return libcst.FlattenSentinel(
@@ -54,7 +58,7 @@ class Transformer(libcst.CSTTransformer):
                         libcst.Import(
                             names=[
                                 libcst.ImportAlias(
-                                    name=libcst.Name(value=self.importfrom)
+                                    name=self._name_to_attribute(module_name)
                                 )
                             ]
                         ),
@@ -79,11 +83,22 @@ class Transformer(libcst.CSTTransformer):
             and qualified_name.source == libcst.metadata.QualifiedNameSource.IMPORT
             and qualified_name.name.startswith(f"{self.importfrom}.")
         ):
-            return libcst.Attribute(
-                value=libcst.Name(value=self.importfrom),
-                attr=libcst.Name(value=qualified_name.name.split(".")[-1]),
-            )
+            return self._name_to_attribute(qualified_name.name)
         return updated_node
+
+    def _attribute_to_name(self, attribute: libcst.Attribute | libcst.Name) -> str:
+        if isinstance(attribute, libcst.Name):
+            return attribute.value
+        else:
+            return self._attribute_to_name(attribute.value) + "." + attribute.attr.value
+
+    def _name_to_attribute(self, name: str) -> libcst.Attribute | libcst.Name:
+        if "." not in name:
+            return libcst.Name(value=name)
+        l, r = name.rsplit(".", 1)
+        return libcst.Attribute(
+            value=self._name_to_attribute(l), attr=libcst.Name(value=r)
+        )
 
 
 def transform_importfrom(*, code: str, importfrom: str) -> str:
