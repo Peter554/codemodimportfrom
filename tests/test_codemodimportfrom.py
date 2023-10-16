@@ -111,6 +111,32 @@ import foo
 foo.a
 foo.b()""",
         ],
+        #
+        [
+            """
+from foo import a as aa
+from bar import aa as a
+aa
+a""",
+            """
+import foo
+from bar import aa as a
+foo.a
+a""",
+        ],
+        #
+        [
+            """
+from foo import a as aa
+from foo.bar import aa as a
+aa
+a""",
+            """
+import foo
+import foo.bar
+foo.a
+foo.bar.aa""",
+        ],
     ],
 )
 def test_handles_import_aliases(code, expected_transformed_code):
