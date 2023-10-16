@@ -318,7 +318,7 @@ def test_respects_allowlist(code, expected_transformed_code):
     transformed_code = codemodimportfrom.transform_importfrom(
         code=code,
         modules=["pydantic"],
-        allow_list=["pydantic.BaseModel", "pydantic.v1.BaseModel"],
+        allow=["pydantic.BaseModel", "pydantic.v1.BaseModel"],
     )
 
     assert transformed_code == expected_transformed_code
@@ -361,7 +361,7 @@ def test_respects_allowlist_with_wildcards(code, expected_transformed_code):
     transformed_code = codemodimportfrom.transform_importfrom(
         code=code,
         modules=["pydantic"],
-        allow_list=["pydantic.v1.*"],
+        allow=["pydantic.v1.*"],
     )
 
     assert transformed_code == expected_transformed_code
@@ -464,7 +464,7 @@ def test_handles_transform_module_imports(code, expected_transformed_code):
     transformed_code = codemodimportfrom.transform_importfrom(
         code=code,
         modules=["pydantic"],
-        allow_list=["pydantic.ValidationError", "pydantic.v1.BaseModel"],
+        allow=["pydantic.ValidationError", "pydantic.v1.BaseModel"],
         transform_module_imports=True,
     )
 

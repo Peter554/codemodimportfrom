@@ -20,13 +20,16 @@ codemodimportfrom path/to/file.py
 codemodimportfrom path/to/file.py --write
 
 # Transform ImportFrom statements for modules "foo" and "bar" only
-codemodimportfrom path/to/file.py --modules foo --modules bar
+codemodimportfrom path/to/file.py --module foo --module bar
 
 # Allow object imports for "typing.Optional" and "typing.Union"
-codemodimportfrom path/to/file.py --allow-list typing.Optional --allow-list typing.Union
+codemodimportfrom path/to/file.py --allow typing.Optional --allow typing.Union
+
+# Allow all object imports from typing
+codemodimportfrom path/to/file.py --allow typing.*
 
 # Parse allow list from a .txt file (one line per allowed object import)
-codemodimportfrom path/to/file.py --allow-list allow.txt
+codemodimportfrom path/to/file.py --allow allow.txt
 
 # Also transform module imports 
 # e.g. `from pydantic import dataclasses` becomes `import pydantic.dataclasses`

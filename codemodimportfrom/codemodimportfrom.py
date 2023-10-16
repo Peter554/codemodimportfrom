@@ -9,13 +9,13 @@ def transform_importfrom(
     *,
     code: str,
     modules: list[str] | None = None,
-    allow_list: list[str] | None = None,
+    allow: list[str] | None = None,
     transform_module_imports: bool = False,
 ) -> str:
     tree = cst.parse_module(code)
     wrapper = cst.metadata.MetadataWrapper(tree)
     tree = wrapper.visit(
-        Transformer(modules or [], allow_list or [], transform_module_imports)
+        Transformer(modules or [], allow or [], transform_module_imports)
     )
     return tree.code
 
@@ -24,7 +24,7 @@ class Transformer(cst.CSTTransformer):
     METADATA_DEPENDENCIES = (cst.metadata.QualifiedNameProvider,)
 
     def __init__(
-        self, modules: list[str], allow_list: list[str], transform_module_imports: bool
+        self, modules: list[str], allow: list[str], transform_module_imports: bool
     ):
         self.modules = modules
         self.transform_module_imports = transform_module_imports
@@ -33,10 +33,10 @@ class Transformer(cst.CSTTransformer):
         self._import_aliases_by_import = collections.defaultdict(set)
         self._imports_to_add_by_import = collections.defaultdict(set)
         self._import_aliases_to_remove_by_import = collections.defaultdict(set)
-        self._qualified_names_to_leave = set(allow_list)
+        self._qualified_names_to_leave = set(allow)
 
     def visit_ImportFrom(self, node: cst.ImportFrom) -> bool | None:
-        if node.module is None:
+        if node.relative:
             return
         module_name = self._attribute_to_name(node.module)
         if not self.modules or any(
@@ -81,10 +81,8 @@ class Transformer(cst.CSTTransformer):
                     cst.ImportFrom(
                         module=original_node.module,
                         names=[
-                            imports_to_keep.with_changes(
-                                comma=cst.MaybeSentinel.DEFAULT
-                            )
-                            for imports_to_keep in list(imports_to_keep)
+                            import_to_keep.with_changes(comma=cst.MaybeSentinel.DEFAULT)
+                            for import_to_keep in imports_to_keep
                         ],
                     )
                 )
@@ -118,8 +116,8 @@ class Transformer(cst.CSTTransformer):
             not self._matches_qualified_name_to_leave(qualified_name.name)
             and qualified_name.source == cst.metadata.QualifiedNameSource.IMPORT
             and any(
-                qualified_name.name.startswith(f"{imports_from}.")
-                for imports_from in self._imports_from
+                qualified_name.name.startswith(f"{import_from}.")
+                for import_from in self._imports_from
             )
         ):
             return self._name_to_attribute(qualified_name.name)
