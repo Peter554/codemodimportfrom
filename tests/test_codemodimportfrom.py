@@ -1,11 +1,15 @@
 import pytest
 
-import codemodimportfrom
+from codemodimportfrom import codemodimportfrom
 
 
 @pytest.mark.parametrize(
     "code,expected_transformed_code",
     [
+        ["", ""],
+        #
+        ["# foo", "# foo"],
+        #
         [
             """
 from foo import a, b
