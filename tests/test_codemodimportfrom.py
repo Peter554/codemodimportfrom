@@ -311,7 +311,7 @@ def test_respects_allowlist(code, expected_transformed_code):
     transformed_code = codemodimportfrom.transform_importfrom(
         code=code,
         modules=["pydantic"],
-        allowlist=["pydantic.BaseModel", "pydantic.v1.BaseModel"],
+        allow_list=["pydantic.BaseModel", "pydantic.v1.BaseModel"],
     )
 
     assert transformed_code == expected_transformed_code
@@ -354,7 +354,7 @@ def test_respects_allowlist_with_wildcards(code, expected_transformed_code):
     transformed_code = codemodimportfrom.transform_importfrom(
         code=code,
         modules=["pydantic"],
-        allowlist=["pydantic.v1.*"],
+        allow_list=["pydantic.v1.*"],
     )
 
     assert transformed_code == expected_transformed_code
@@ -390,3 +390,75 @@ foo.a
 bar.b
 baz.c""".strip()
     )
+
+
+@pytest.mark.parametrize(
+    "code, expected_transformed_code",
+    [
+        [
+            """
+from pydantic import dataclasses
+dataclasses""",
+            """
+import pydantic.dataclasses
+pydantic.dataclasses""",
+        ],
+        #
+        [
+            """
+from pydantic import dataclasses, BaseModel
+dataclasses
+BaseModel""",
+            """
+import pydantic; import pydantic.dataclasses
+pydantic.dataclasses
+pydantic.BaseModel""",
+        ],
+        #
+        [
+            """
+from pydantic import dataclasses, BaseModel, ValidationError
+dataclasses
+BaseModel
+ValidationError""",
+            """
+from pydantic import ValidationError; import pydantic; import pydantic.dataclasses
+pydantic.dataclasses
+pydantic.BaseModel
+ValidationError""",
+        ],
+        #
+        [
+            """
+from pydantic import dataclasses, BaseModel, ValidationError
+from pydantic.v1 import dataclasses as v1_dataclasses, BaseModel as V1BaseModel, ValidationError as V1ValidationError
+dataclasses
+BaseModel
+ValidationError
+v1_dataclasses
+V1BaseModel
+V1ValidationError""",
+            """
+from pydantic import ValidationError; import pydantic; import pydantic.dataclasses
+from pydantic.v1 import BaseModel as V1BaseModel; import pydantic.v1; import pydantic.v1.dataclasses
+pydantic.dataclasses
+pydantic.BaseModel
+ValidationError
+pydantic.v1.dataclasses
+V1BaseModel
+pydantic.v1.ValidationError""",
+        ],
+    ],
+)
+def test_handles_transform_module_imports(code, expected_transformed_code):
+    code = code.strip()
+    expected_transformed_code = expected_transformed_code.strip()
+
+    transformed_code = codemodimportfrom.transform_importfrom(
+        code=code,
+        modules=["pydantic"],
+        allow_list=["pydantic.ValidationError", "pydantic.v1.BaseModel"],
+        transform_module_imports=True,
+    )
+
+    assert transformed_code == expected_transformed_code

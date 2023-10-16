@@ -8,29 +8,37 @@ def transform_importfrom(
     *,
     code: str,
     modules: list[str] | None = None,
-    allowlist: list[str] | None = None,
+    allow_list: list[str] | None = None,
+    transform_module_imports: bool = False,
 ) -> str:
     tree = cst.parse_module(code)
     wrapper = cst.metadata.MetadataWrapper(tree)
-    tree = wrapper.visit(Transformer(modules or [], allowlist or []))
+    tree = wrapper.visit(
+        Transformer(modules or [], allow_list or [], transform_module_imports)
+    )
     return tree.code
 
 
 class Transformer(cst.CSTTransformer):
     METADATA_DEPENDENCIES = (cst.metadata.QualifiedNameProvider,)
 
-    def __init__(self, modules: list[str], allowlist: list[str]):
+    def __init__(
+        self, modules: list[str], allow_list: list[str], transform_module_imports: bool
+    ):
         self.modules = modules
+        self.transform_module_imports = transform_module_imports
 
         self._imports_from = set()
         self._import_aliases_by_import = collections.defaultdict(set)
+        self._imports_to_add_by_import = collections.defaultdict(set)
         self._import_aliases_to_remove_by_import = collections.defaultdict(set)
-        self._qualified_names_to_leave = set(allowlist)
+        self._qualified_names_to_leave = set(allow_list)
 
     def visit_ImportFrom(self, node: cst.ImportFrom) -> bool | None:
         module_name = self._attribute_to_name(node.module)
         if not self.modules or any(
-            module_name.startswith(module) for module in self.modules
+            module_name == module or module_name.startswith(module + ".")
+            for module in self.modules
         ):
             self._imports_from.add(module_name)
             for import_alias in node.names:
@@ -39,12 +47,21 @@ class Transformer(cst.CSTTransformer):
                 if self._matches_qualified_name_to_leave(full_import):
                     continue
                 try:
-                    # No error -> A module.
                     importlib.import_module(full_import)
-                    self._qualified_names_to_leave.add(full_import)
                 except ModuleNotFoundError:
                     # Error -> Not a module.
+                    self._imports_to_add_by_import[node].add(module_name)
                     self._import_aliases_to_remove_by_import[node].add(import_alias)
+                else:
+                    # No error -> A module.
+                    if self.transform_module_imports:
+                        self._imports_to_add_by_import[node].add(
+                            f"{module_name}.{import_alias.name.value}"
+                        )
+                        self._import_aliases_to_remove_by_import[node].add(import_alias)
+                    else:
+                        self._qualified_names_to_leave.add(full_import)
+
         return False
 
     def leave_ImportFrom(
@@ -52,37 +69,37 @@ class Transformer(cst.CSTTransformer):
     ) -> cst.BaseSmallStatement | cst.FlattenSentinel[
         cst.BaseSmallStatement
     ] | cst.RemovalSentinel:
-        module_name = self._attribute_to_name(original_node.module)
         if original_node in self._import_aliases_by_import:
+            nodes = []
+            imports_to_add = self._imports_to_add_by_import[original_node]
             imports_to_remove = self._import_aliases_to_remove_by_import[original_node]
             imports_to_keep = (
                 self._import_aliases_by_import[original_node] - imports_to_remove
             )
-            if not imports_to_keep:
-                return cst.Import(
-                    names=[cst.ImportAlias(name=self._name_to_attribute(module_name))]
+            if imports_to_keep:
+                nodes.append(
+                    cst.ImportFrom(
+                        module=original_node.module,
+                        names=[
+                            imports_to_keep.with_changes(
+                                comma=cst.MaybeSentinel.DEFAULT
+                            )
+                            for imports_to_keep in list(imports_to_keep)
+                        ],
+                    )
                 )
-            elif imports_to_remove:
-                return cst.FlattenSentinel(
-                    nodes=[
-                        cst.ImportFrom(
-                            module=original_node.module,
-                            names=[
-                                imports_to_keep.with_changes(
-                                    comma=cst.MaybeSentinel.DEFAULT
-                                )
-                                for imports_to_keep in list(imports_to_keep)
-                            ],
-                        ),
+            if imports_to_add:
+                for import_to_add in sorted(imports_to_add):
+                    nodes.append(
                         cst.Import(
                             names=[
                                 cst.ImportAlias(
-                                    name=self._name_to_attribute(module_name)
+                                    name=self._name_to_attribute(import_to_add)
                                 )
                             ]
-                        ),
-                    ]
-                )
+                        )
+                    )
+            return cst.FlattenSentinel(nodes=nodes)
         return updated_node
 
     def leave_Name(
