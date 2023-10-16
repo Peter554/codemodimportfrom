@@ -36,7 +36,7 @@ class Transformer(cst.CSTTransformer):
             for import_alias in node.names:
                 self._import_aliases_by_import[node].add(import_alias)
                 full_import = f"{module_name}.{import_alias.name.value}"
-                if full_import in self._qualified_names_to_leave:
+                if self._matches_qualified_name_to_leave(full_import):
                     continue
                 try:
                     # No error -> A module.
@@ -98,7 +98,7 @@ class Transformer(cst.CSTTransformer):
         qualified_name = qualified_names.pop()
 
         if (
-            qualified_name.name not in self._qualified_names_to_leave
+            not self._matches_qualified_name_to_leave(qualified_name.name)
             and qualified_name.source == cst.metadata.QualifiedNameSource.IMPORT
             and any(
                 qualified_name.name.startswith(f"{imports_from}.")
@@ -120,3 +120,13 @@ class Transformer(cst.CSTTransformer):
             return cst.Name(value=name)
         l, r = name.rsplit(".", 1)
         return cst.Attribute(value=self._name_to_attribute(l), attr=cst.Name(value=r))
+
+    def _matches_qualified_name_to_leave(self, qualified_name: str) -> bool:
+        for qualified_name_to_leave in self._qualified_names_to_leave:
+            if qualified_name_to_leave.endswith(".*") and qualified_name.startswith(
+                qualified_name_to_leave.removesuffix(".*") + "."
+            ):
+                return True
+            elif qualified_name == qualified_name_to_leave:
+                return True
+        return False

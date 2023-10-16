@@ -317,6 +317,49 @@ def test_respects_allowlist(code, expected_transformed_code):
     assert transformed_code == expected_transformed_code
 
 
+@pytest.mark.parametrize(
+    "code, expected_transformed_code",
+    [
+        [
+            """
+from pydantic.v1 import BaseModel
+BaseModel""",
+            """
+from pydantic.v1 import BaseModel
+BaseModel""",
+        ],
+        #
+        [
+            """
+from pydantic.v1 import BaseModel as V1BaseModel, ValidationError as V1ValidationError
+from pydantic import BaseModel, ValidationError
+V1BaseModel
+V1ValidationError
+BaseModel
+ValidationError""",
+            """
+from pydantic.v1 import BaseModel as V1BaseModel, ValidationError as V1ValidationError
+import pydantic
+V1BaseModel
+V1ValidationError
+pydantic.BaseModel
+pydantic.ValidationError""",
+        ],
+    ],
+)
+def test_respects_allowlist_with_wildcards(code, expected_transformed_code):
+    code = code.strip()
+    expected_transformed_code = expected_transformed_code.strip()
+
+    transformed_code = codemodimportfrom.transform_importfrom(
+        code=code,
+        modules=["pydantic"],
+        allowlist=["pydantic.v1.*"],
+    )
+
+    assert transformed_code == expected_transformed_code
+
+
 def test_handles_multiple_modules():
     code = """
 from foo import a
