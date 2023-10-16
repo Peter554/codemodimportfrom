@@ -36,6 +36,8 @@ class Transformer(cst.CSTTransformer):
         self._qualified_names_to_leave = set(allow_list)
 
     def visit_ImportFrom(self, node: cst.ImportFrom) -> bool | None:
+        if node.module is None:
+            return
         module_name = self._attribute_to_name(node.module)
         if not self.modules or any(
             module_name == module or module_name.startswith(module + ".")

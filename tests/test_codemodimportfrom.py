@@ -10,6 +10,9 @@ from codemodimportfrom import codemodimportfrom
         #
         ["# foo", "# foo"],
         #
+        ["from . import bar", "from . import bar"],  # TODO handle relative dot imports
+        ["from .bar import baz", "from .bar import baz"],
+        #
         [
             """
 from foo import a, b
