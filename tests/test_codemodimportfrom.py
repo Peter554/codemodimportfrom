@@ -81,7 +81,7 @@ def test_rewrites_imports(code, expected_transformed_code):
     expected_transformed_code = expected_transformed_code.strip()
 
     transformed_code = codemodimportfrom.transform_importfrom(
-        code=code, importfrom="foo"
+        code=code, modules=["foo"]
     )
 
     assert transformed_code == expected_transformed_code
@@ -144,7 +144,7 @@ def test_handles_import_aliases(code, expected_transformed_code):
     expected_transformed_code = expected_transformed_code.strip()
 
     transformed_code = codemodimportfrom.transform_importfrom(
-        code=code, importfrom="foo"
+        code=code, modules=["foo"]
     )
 
     assert transformed_code == expected_transformed_code
@@ -176,7 +176,7 @@ def test_handles_dotted_imports(code, expected_transformed_code):
     expected_transformed_code = expected_transformed_code.strip()
 
     transformed_code = codemodimportfrom.transform_importfrom(
-        code=code, importfrom="foo"
+        code=code, modules=["foo"]
     )
 
     assert transformed_code == expected_transformed_code
@@ -246,7 +246,7 @@ def test_does_not_rewrite_module_imports(code, expected_transformed_code):
     expected_transformed_code = expected_transformed_code.strip()
 
     transformed_code = codemodimportfrom.transform_importfrom(
-        code=code, importfrom="pydantic"
+        code=code, modules=["pydantic"]
     )
 
     assert transformed_code == expected_transformed_code
@@ -310,8 +310,40 @@ def test_respects_allowlist(code, expected_transformed_code):
 
     transformed_code = codemodimportfrom.transform_importfrom(
         code=code,
-        importfrom="pydantic",
+        modules=["pydantic"],
         allowlist=["pydantic.BaseModel", "pydantic.v1.BaseModel"],
     )
 
     assert transformed_code == expected_transformed_code
+
+
+def test_handles_multiple_modules():
+    code = """
+from foo import a
+from bar import b
+from baz import c
+a
+b
+c""".strip()
+
+    assert (
+        codemodimportfrom.transform_importfrom(code=code, modules=["foo", "baz"])
+        == """
+import foo
+from bar import b
+import baz
+foo.a
+b
+baz.c""".strip()
+    )
+
+    assert (
+        codemodimportfrom.transform_importfrom(code=code)
+        == """
+import foo
+import bar
+import baz
+foo.a
+bar.b
+baz.c""".strip()
+    )

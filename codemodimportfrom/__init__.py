@@ -7,28 +7,32 @@ import libcst as cst
 def transform_importfrom(
     *,
     code: str,
-    importfrom: str,
+    modules: list[str] | None = None,
     allowlist: list[str] | None = None,
 ) -> str:
     tree = cst.parse_module(code)
     wrapper = cst.metadata.MetadataWrapper(tree)
-    tree = wrapper.visit(Transformer(importfrom, allowlist or []))
+    tree = wrapper.visit(Transformer(modules or [], allowlist or []))
     return tree.code
 
 
 class Transformer(cst.CSTTransformer):
     METADATA_DEPENDENCIES = (cst.metadata.QualifiedNameProvider,)
 
-    def __init__(self, importfrom: str, allowlist: list[str]):
-        self.importfrom = importfrom
+    def __init__(self, modules: list[str], allowlist: list[str]):
+        self.modules = modules
 
+        self._imports_from = set()
         self._import_aliases_by_import = collections.defaultdict(set)
         self._import_aliases_to_remove_by_import = collections.defaultdict(set)
         self._qualified_names_to_leave = set(allowlist)
 
     def visit_ImportFrom(self, node: cst.ImportFrom) -> bool | None:
         module_name = self._attribute_to_name(node.module)
-        if module_name.startswith(self.importfrom):
+        if not self.modules or any(
+            module_name.startswith(module) for module in self.modules
+        ):
+            self._imports_from.add(module_name)
             for import_alias in node.names:
                 self._import_aliases_by_import[node].add(import_alias)
                 full_import = f"{module_name}.{import_alias.name.value}"
@@ -96,7 +100,10 @@ class Transformer(cst.CSTTransformer):
         if (
             qualified_name.name not in self._qualified_names_to_leave
             and qualified_name.source == cst.metadata.QualifiedNameSource.IMPORT
-            and qualified_name.name.startswith(f"{self.importfrom}.")
+            and any(
+                qualified_name.name.startswith(f"{imports_from}.")
+                for imports_from in self._imports_from
+            )
         ):
             return self._name_to_attribute(qualified_name.name)
         return updated_node
