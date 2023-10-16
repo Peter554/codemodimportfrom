@@ -1,5 +1,6 @@
 import collections
 import importlib
+import functools
 
 import libcst as cst
 
@@ -46,14 +47,8 @@ class Transformer(cst.CSTTransformer):
                 full_import = f"{module_name}.{import_alias.name.value}"
                 if self._matches_qualified_name_to_leave(full_import):
                     continue
-                try:
-                    importlib.import_module(full_import)
-                except ModuleNotFoundError:
-                    # Error -> Not a module.
-                    self._imports_to_add_by_import[node].add(module_name)
-                    self._import_aliases_to_remove_by_import[node].add(import_alias)
-                else:
-                    # No error -> A module.
+                is_module = self._is_module(full_import)
+                if is_module:
                     if self.transform_module_imports:
                         self._imports_to_add_by_import[node].add(
                             f"{module_name}.{import_alias.name.value}"
@@ -61,6 +56,9 @@ class Transformer(cst.CSTTransformer):
                         self._import_aliases_to_remove_by_import[node].add(import_alias)
                     else:
                         self._qualified_names_to_leave.add(full_import)
+                else:
+                    self._imports_to_add_by_import[node].add(module_name)
+                    self._import_aliases_to_remove_by_import[node].add(import_alias)
 
         return False
 
@@ -147,3 +145,12 @@ class Transformer(cst.CSTTransformer):
             elif qualified_name == qualified_name_to_leave:
                 return True
         return False
+
+    @functools.cache
+    def _is_module(self, path: str) -> bool:
+        try:
+            importlib.import_module(path)
+        except ModuleNotFoundError:
+            return False
+        else:
+            return True
