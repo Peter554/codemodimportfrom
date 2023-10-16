@@ -85,3 +85,45 @@ def test_rewrites_imports(code, expected_transformed_code):
     )
 
     assert transformed_code == expected_transformed_code
+
+
+@pytest.mark.parametrize(
+    "code, expected_transformed_code",
+    [
+        [
+            """
+from pydantic import BaseModel
+BaseModel""",
+            """
+import pydantic
+pydantic.BaseModel""",
+        ],
+        [
+            """
+from pydantic import dataclasses
+dataclasses""",
+            """
+from pydantic import dataclasses
+dataclasses""",
+        ],
+        [
+            """
+from pydantic import BaseModel, dataclasses
+BaseModel
+dataclasses""",
+            """
+from pydantic import dataclasses; import pydantic
+pydantic.BaseModel
+dataclasses""",
+        ],
+    ],
+)
+def test_does_not_rewrite_module_imports(code, expected_transformed_code):
+    code = code.strip()
+    expected_transformed_code = expected_transformed_code.strip()
+
+    transformed_code = codemodimportfrom.transform_importfrom(
+        code=code, importfrom="pydantic"
+    )
+
+    assert transformed_code == expected_transformed_code
