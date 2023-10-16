@@ -36,23 +36,20 @@ class Transformer(libcst.CSTTransformer):
         "BaseSmallStatement", FlattenSentinel["BaseSmallStatement"], RemovalSentinel
     ]:
         if original_node in self._import_aliases_by_import:
-            if (
-                self._import_aliases_by_import[original_node]
-                == self._import_aliases_to_remove_by_import[original_node]
-            ):
+            imports_to_remove = self._import_aliases_to_remove_by_import[original_node]
+            imports_to_keep = (
+                self._import_aliases_by_import[original_node] - imports_to_remove
+            )
+            if not imports_to_keep:
                 return libcst.Import(
                     names=[libcst.ImportAlias(name=libcst.Name(value=self.importfrom))]
                 )
-            elif self._import_aliases_to_remove_by_import[original_node]:
-                imports_to_keep = list(
-                    self._import_aliases_by_import[original_node]
-                    - self._import_aliases_to_remove_by_import[original_node]
-                )
+            elif imports_to_remove:
                 return libcst.FlattenSentinel(
                     nodes=[
                         libcst.ImportFrom(
                             module=original_node.module,
-                            names=imports_to_keep,
+                            names=list(imports_to_keep),
                         ),
                         libcst.Import(
                             names=[
@@ -80,11 +77,11 @@ class Transformer(libcst.CSTTransformer):
         if (
             qualified_name.name not in self._qualified_names_to_leave
             and qualified_name.source == libcst.metadata.QualifiedNameSource.IMPORT
-            and qualified_name.name == f"{self.importfrom}.{original_node.value}"
+            and qualified_name.name.startswith(f"{self.importfrom}.")
         ):
             return libcst.Attribute(
                 value=libcst.Name(value=self.importfrom),
-                attr=libcst.Name(value=original_node.value),
+                attr=libcst.Name(value=qualified_name.name.split(".")[-1]),
             )
         return updated_node
 

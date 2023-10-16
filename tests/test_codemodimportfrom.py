@@ -88,6 +88,43 @@ def test_rewrites_imports(code, expected_transformed_code):
 
 
 @pytest.mark.parametrize(
+    "code,expected_transformed_code",
+    [
+        [
+            """
+from foo import a as aa, b
+aa
+b()""",
+            """
+import foo
+foo.a
+foo.b()""",
+        ],
+        #
+        [
+            """
+from foo import a as aa, b as bb
+aa
+bb()""",
+            """
+import foo
+foo.a
+foo.b()""",
+        ],
+    ],
+)
+def test_handles_import_aliases(code, expected_transformed_code):
+    code = code.strip()
+    expected_transformed_code = expected_transformed_code.strip()
+
+    transformed_code = codemodimportfrom.transform_importfrom(
+        code=code, importfrom="foo"
+    )
+
+    assert transformed_code == expected_transformed_code
+
+
+@pytest.mark.parametrize(
     "code, expected_transformed_code",
     [
         [
@@ -98,6 +135,7 @@ BaseModel""",
 import pydantic
 pydantic.BaseModel""",
         ],
+        #
         [
             """
 from pydantic import dataclasses
@@ -106,6 +144,7 @@ dataclasses""",
 from pydantic import dataclasses
 dataclasses""",
         ],
+        #
         [
             """
 from pydantic import BaseModel, dataclasses
@@ -115,6 +154,17 @@ dataclasses""",
 from pydantic import dataclasses; import pydantic
 pydantic.BaseModel
 dataclasses""",
+        ],
+        #
+        [
+            """
+from pydantic import BaseModel as PydanticBaseModel, dataclasses as pydantic_dataclasses
+PydanticBaseModel
+pydantic_dataclasses""",
+            """
+from pydantic import dataclasses as pydantic_dataclasses; import pydantic
+pydantic.BaseModel
+pydantic_dataclasses""",
         ],
     ],
 )
