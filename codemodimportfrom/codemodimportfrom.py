@@ -66,9 +66,11 @@ class Transformer(cst.CSTTransformer):
 
     def leave_ImportFrom(
         self, original_node: cst.ImportFrom, updated_node: cst.ImportFrom
-    ) -> cst.BaseSmallStatement | cst.FlattenSentinel[
+    ) -> (
         cst.BaseSmallStatement
-    ] | cst.RemovalSentinel:
+        | cst.FlattenSentinel[cst.BaseSmallStatement]
+        | cst.RemovalSentinel
+    ):
         if original_node in self._import_aliases_by_import:
             nodes = []
             imports_to_add = self._imports_to_add_by_import[original_node]
@@ -86,6 +88,7 @@ class Transformer(cst.CSTTransformer):
                         ],
                     )
                 )
+
             if imports_to_add:
                 for import_to_add in sorted(imports_to_add):
                     nodes.append(
