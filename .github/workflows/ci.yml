@@ -16,5 +16,7 @@ jobs:
         run: curl -sSL https://install.python-poetry.org | python -
       - name: Install Python dependencies
         run: poetry install
-      - name: Check
-        run: task check
+      - name: Lint
+        run: task lint
+      - name: Test
+        run: task test

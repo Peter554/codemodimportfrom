@@ -1,5 +1,7 @@
 # codemodimportfrom
 
+[![CI](https://github.com/Peter554/codemodimportfrom/actions/workflows/ci.yml/badge.svg)](https://github.com/Peter554/codemodimportfrom/actions/workflows/ci.yml)
+
 Automatically update ImportFrom statements to "import modules, not objects".
 
 ## Install
