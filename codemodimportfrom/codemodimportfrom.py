@@ -1,3 +1,6 @@
+import sys
+import os
+
 import collections
 import importlib
 import functools
@@ -12,6 +15,7 @@ def transform_importfrom(
     allow: list[str] | None = None,
     transform_module_imports: bool = False,
 ) -> str:
+    sys.path.append(os.getcwd())
     tree = cst.parse_module(code)
     wrapper = cst.metadata.MetadataWrapper(tree)
     tree = wrapper.visit(
@@ -37,6 +41,7 @@ class Transformer(cst.CSTTransformer):
 
     def visit_ImportFrom(self, node: cst.ImportFrom) -> bool | None:
         if node.relative:
+            # TODO handle relative dot imports
             return
         module_name = self._attribute_to_name(node.module)
         if not self.modules or any(
@@ -152,7 +157,7 @@ class Transformer(cst.CSTTransformer):
     def _is_module(self, path: str) -> bool:
         try:
             importlib.import_module(path)
-        except ModuleNotFoundError:
+        except Exception:
             return False
         else:
             return True

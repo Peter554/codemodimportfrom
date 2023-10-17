@@ -10,8 +10,8 @@ from codemodimportfrom import codemodimportfrom
         #
         ["# foo", "# foo"],
         #
-        ["from . import bar", "from . import bar"],  # TODO handle relative dot imports
-        ["from .bar import baz", "from .bar import baz"],
+        ["from . import bar", "from . import bar"],
+        ["from .foo import bar", "from .foo import bar"],
         #
         [
             """
@@ -466,6 +466,38 @@ def test_handles_transform_module_imports(code, expected_transformed_code):
         modules=["pydantic"],
         allow=["pydantic.ValidationError", "pydantic.v1.BaseModel"],
         transform_module_imports=True,
+    )
+
+    assert transformed_code == expected_transformed_code
+
+
+@pytest.mark.parametrize(
+    "code,expected_transformed_code",
+    [
+        [
+            """
+from pydantic import BaseModel, dataclasses
+from pydantic.v1 import BaseModel as V1BaseModel, dataclasses as v1_dataclasses
+BaseModel
+dataclasses
+V1BaseModel
+v1_dataclasses""",
+            """
+from pydantic import BaseModel, dataclasses
+from pydantic.v1 import dataclasses as v1_dataclasses; import pydantic.v1
+BaseModel
+dataclasses
+pydantic.v1.BaseModel
+v1_dataclasses""",
+        ],
+    ],
+)
+def test_handles_dotted_module(code, expected_transformed_code):
+    code = code.strip()
+    expected_transformed_code = expected_transformed_code.strip()
+
+    transformed_code = codemodimportfrom.transform_importfrom(
+        code=code, modules=["pydantic.v1"]
     )
 
     assert transformed_code == expected_transformed_code
