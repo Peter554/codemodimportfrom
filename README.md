@@ -8,13 +8,13 @@ Automatically update ImportFrom statements to "import modules, not objects".
 
 From within your project's virtual environment, install `codemodimportfrom` (as a dev dependency). e.g.
 
-```
+```sh
 pip install codemodimportfrom
 ```
 
 ## Usage
 
-```
+```sh
 # Transform all ImportFrom statements in the file path/to/file.py
 codemodimportfrom path/to/file.py
 
