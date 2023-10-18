@@ -157,7 +157,9 @@ class Transformer(cst.CSTTransformer):
     def _is_module(self, path: str) -> bool:
         try:
             importlib.import_module(path)
-        except Exception:
+        except ModuleNotFoundError:
             return False
+        except Exception:
+            return True
         else:
             return True
